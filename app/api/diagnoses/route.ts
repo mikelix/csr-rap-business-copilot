@@ -1,0 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+const schema="CREATE TABLE IF NOT EXISTS diagnoses (id INTEGER PRIMARY KEY AUTOINCREMENT, payload TEXT NOT NULL, created_at TEXT NOT NULL)";
+async function database(){const {env}=await import("cloudflare:workers");return env.DB}
+export async function GET(){try{const DB=await database();await DB.prepare(schema).run();const {results}=await DB.prepare("SELECT id,payload,created_at FROM diagnoses ORDER BY id DESC LIMIT 20").all();return Response.json({records:results.map((r:any)=>({...JSON.parse(r.payload),id:r.id}))})}catch(e){return Response.json({error:"暂时无法读取历史记录",records:[]},{status:500})}}
+export async function POST(req:Request){try{const DB=await database();const payload=await req.json();await DB.prepare(schema).run();const date=new Date().toISOString();const r=await DB.prepare("INSERT INTO diagnoses (payload,created_at) VALUES (?,?)").bind(JSON.stringify(payload),date).run();return Response.json({record:{...payload,id:r.meta.last_row_id}},{status:201})}catch(e){return Response.json({error:"暂时无法保存诊断"},{status:500})}}
